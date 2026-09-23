@@ -56,6 +56,9 @@ class GoalUpdate(BaseModel):
     timeline: str = Field(default='6 months',max_length=80)
     weekly_hours: int = Field(default=3,ge=1,le=30)
 
+class LanguageUpdate(BaseModel):
+    language: Literal['en','ru','kk']
+
 class EventProposal(BaseModel):
     title: str = Field(min_length=3,max_length=160)
     description: str = Field(min_length=10,max_length=1600)
@@ -364,6 +367,17 @@ def create_app(settings=default_settings):
             c.execute('DELETE FROM ai_cache')
             c.execute('INSERT INTO audit(actor,action,subject) VALUES (?,?,?)',(user['username'],'update_goal',eid))
         return {'saved':True,'career_goal':updated['career_goal']}
+
+    @app.put('/api/employees/{eid}/language')
+    def update_language(eid:str,body:LanguageUpdate,user=Depends(session)):
+        with store.connect(write=True) as c:
+            data=store.snapshot(c); current=employee(eid,user,data)
+            updated={**current,'preferred_language':body.language}
+            people=[updated if x['employee_id']==eid else x for x in data['employees']]
+            store.put(c,'employees',{'meta':{'as_of_date':data['as_of_date']},'employees':people})
+            c.execute('INSERT INTO audit(actor,action,subject) VALUES (?,?,?)',
+                      (user['username'],'update_language',eid))
+        return {'saved':True,'language':body.language}
 
     @app.post('/api/employees/{eid}/event-analysis')
     async def analyze_personal_event(eid:str,body:EventProposal,user=Depends(session)):

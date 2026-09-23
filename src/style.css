@@ -58,6 +58,7 @@ h1,h2,h3,p { margin-top: 0; }
 .content { min-width: 0; }
 .topbar { height: 76px; padding: 0 clamp(24px,4vw,60px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(20,20,25,.055); background: rgba(245,245,247,.72); backdrop-filter: blur(24px); position: sticky; top: 0; z-index: 4; }
 .topbar>div:first-child { display: flex; align-items: center; gap: 10px; font-size: 14px; }.mobile-wordmark{display:none}.top-actions{display:flex;align-items:center;gap:10px}.top-actions select{width:auto;max-width:240px;background:#fff;padding:9px 35px 9px 12px;font-size:12px}.icon-button{width:38px;height:38px;border-radius:50%;background:#fff;color:#5d5d64;box-shadow:0 4px 14px rgba(30,40,60,.08);font-size:16px}
+.language-picker{width:auto!important;min-width:68px;padding:9px 27px 9px 10px!important;border-radius:12px!important;background-color:#fff!important;font-weight:800!important;color:var(--blue-dark)!important}.auth-panel>.language-picker{position:absolute;right:25px;top:24px;z-index:2}.auth-panel{position:relative}
 .view { max-width: 1440px; margin: 0 auto; padding: 46px clamp(24px,4vw,60px) 70px; }
 
 .welcome-row,.page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 25px; margin-bottom: 26px; }

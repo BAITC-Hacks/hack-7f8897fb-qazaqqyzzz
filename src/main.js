@@ -3,18 +3,94 @@ const app = document.getElementById('app');
 const state = {
   user: null, people: [], skills: [], roles: [], roleProfiles: [], departments: [], selected: null,
   detail: null, hr: null, plan: null, page: 'today', query: '', catalogFilter: 'recommended',
-  aiBusy: false, version: 0, photoDraft: '', gmail: {configured:false,connected:false,email:null}
+  aiBusy: false, version: 0, photoDraft: '', gmail: {configured:false,connected:false,email:null},
+  lang: localStorage.getItem('cq_lang') || 'en'
 };
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const human = value => String(value || '').replaceAll('_',' ').replace(/\b\w/g, c => c.toUpperCase());
+const human = value => t(String(value || '').replaceAll('_',' ').replace(/\b\w/g, c => c.toUpperCase()));
 const initials = name => String(name || '?').split(' ').filter(Boolean).slice(0,2).map(x => x[0]).join('').toUpperCase();
-const dateLabel = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'Flexible';
+const dateLabel = value => value ? new Date(value + 'T12:00:00').toLocaleDateString({en:'en-US',ru:'ru-RU',kk:'kk-KZ'}[state.lang],{month:'short',day:'numeric',year:'numeric'}) : t('Flexible');
 const nav = [
   ['today','sparkles','Today'], ['plan','scope','My Plan'], ['opportunities','calendar','Opportunities'],
   ['activity','check','Activity'], ['profile','person','Profile']
 ];
 const icons = {sparkles:'✦',scope:'◎',calendar:'▦',check:'✓',person:'●',team:'◉'};
+
+const I18N = {
+  ru: {
+    'Today':'Сегодня','My Plan':'Мой план','Opportunities':'Возможности','Activity':'Активность','Profile':'Профиль','People':'Команда',
+    'My Career Plan':'Мой карьерный план','My Profile':'Мой профиль','People & Growth':'Люди и развитие',
+    'Welcome back':'С возвращением','Sign in to continue your personal career journey.':'Войдите, чтобы продолжить свой карьерный путь.',
+    'Username':'Имя пользователя','Password':'Пароль','Continue':'Продолжить','New here? Create an account':'Впервые здесь? Создать аккаунт',
+    'Employee demo':'Демо сотрудника','HR demo':'Демо HR','Create your path':'Создайте свой путь',
+    'Full name':'Полное имя','Work email':'Рабочая почта','Department':'Отдел','Current role':'Текущая роль','Current level':'Текущий уровень',
+    'Create my account':'Создать аккаунт','Already have an account? Sign in':'Уже есть аккаунт? Войти',
+    'GOOD MORNING':'ДОБРОЕ УТРО','GOOD AFTERNOON':'ДОБРЫЙ ДЕНЬ','GOOD EVENING':'ДОБРЫЙ ВЕЧЕР',
+    'Your next meaningful step is already in sight.':'Ваш следующий важный шаг уже виден.','Edit profile':'Редактировать профиль',
+    'YOUR CURRENT DIRECTION':'ВАШЕ ТЕКУЩЕЕ НАПРАВЛЕНИЕ','Shape my plan →':'Сформировать план →','PATH FIT':'СООТВЕТСТВИЕ ЦЕЛИ',
+    'Path level':'Уровень пути','Critical skills':'Ключевые навыки','Completed':'Завершено','Weekly focus':'Фокус недели',
+    'YOUR NEXT MOVES':'СЛЕДУЮЩИЕ ШАГИ','A plan that moves with you':'План, который развивается вместе с вами',
+    '✦ Refine with AI':'✦ Улучшить с ИИ','THIS WEEK':'НА ЭТОЙ НЕДЕЛЕ','One small promise':'Один небольшой шаг','Open my plan':'Открыть план',
+    'YOUR NORTH STAR':'ВАШ ОРИЕНТИР','Turn ambition into a weekly plan.':'Превратите цель в недельный план.',
+    'DIRECTION':'НАПРАВЛЕНИЕ','Describe where you want to go':'Опишите, куда вы хотите прийти','Private to you + HR':'Доступно вам и HR',
+    'In your own words':'Своими словами','Target role':'Целевая роль','Target level':'Целевой уровень','Timeline':'Срок',
+    'Hours I can invest each week':'Часов в неделю','Save direction':'Сохранить направление','Saving direction…':'Сохраняем направление…',
+    'PERSONAL ROADMAP':'ЛИЧНАЯ ДОРОЖНАЯ КАРТА','✦ Create AI plan':'✦ Создать план с ИИ','SKILL SIGNALS':'НАВЫКИ',
+    'What your goal asks for':'Что требуется для вашей цели','MAKE BETTER CHOICES':'ПРИНИМАЙТЕ ЛУЧШИЕ РЕШЕНИЯ',
+    'Is this opportunity worth your time?':'Стоит ли эта возможность вашего времени?','Analyse an upcoming event':'Оценить предстоящее событие',
+    'Event name':'Название события','What will it cover?':'Что будет в программе?','Date':'Дата','Hours':'Часы','Format':'Формат',
+    '✦ Analyse career fit':'✦ Оценить пользу для карьеры','SAVED CHECKS':'СОХРАНЁННЫЕ ОЦЕНКИ','Your opportunity decisions':'Ваши решения',
+    'Explore company opportunities':'Возможности компании','Recommended':'Рекомендуемые','Available':'Доступные','All':'Все',
+    'YOUR MOMENTUM':'ВАШ ПРОГРЕСС','Every step counts.':'Каждый шаг имеет значение.','TIMELINE':'ИСТОРИЯ','Your growth history':'История вашего развития',
+    'YOUR STORY':'ВАША ИСТОРИЯ','Make this space yours.':'Сделайте это пространство своим.','Short bio':'Кратко о себе',
+    'Work style':'Формат работы','Email nudges':'Напоминания по почте','Save profile':'Сохранить профиль','Saving profile…':'Сохраняем профиль…',
+    'CAREER IDENTITY':'КАРЬЕРНЫЙ ПРОФИЛЬ','Edit career goal':'Изменить карьерную цель','Privacy':'Конфиденциальность',
+    'GMAIL INSIGHTS':'GMAIL ИНСАЙТЫ','Connect Gmail':'Подключить Gmail','✦ Find career opportunities':'✦ Найти карьерные возможности',
+    'Disconnect':'Отключить','Language updated.':'Язык обновлён.','Sign out':'Выйти'
+  },
+  kk: {
+    'Today':'Бүгін','My Plan':'Менің жоспарым','Opportunities':'Мүмкіндіктер','Activity':'Белсенділік','Profile':'Профиль','People':'Команда',
+    'My Career Plan':'Мансап жоспарым','My Profile':'Менің профилім','People & Growth':'Қызметкерлер және даму',
+    'Welcome back':'Қош келдіңіз','Sign in to continue your personal career journey.':'Жеке мансап жолыңызды жалғастыру үшін кіріңіз.',
+    'Username':'Пайдаланушы аты','Password':'Құпиясөз','Continue':'Жалғастыру','New here? Create an account':'Алғаш рет пе? Аккаунт ашу',
+    'Employee demo':'Қызметкер демосы','HR demo':'HR демосы','Create your path':'Өз жолыңызды бастаңыз',
+    'Full name':'Толық аты-жөні','Work email':'Жұмыс поштасы','Department':'Бөлім','Current role':'Қазіргі рөл','Current level':'Қазіргі деңгей',
+    'Create my account':'Аккаунт ашу','Already have an account? Sign in':'Аккаунтыңыз бар ма? Кіру',
+    'GOOD MORNING':'ҚАЙЫРЛЫ ТАҢ','GOOD AFTERNOON':'ҚАЙЫРЛЫ КҮН','GOOD EVENING':'ҚАЙЫРЛЫ КЕШ',
+    'Your next meaningful step is already in sight.':'Келесі маңызды қадамыңыз анық көрініп тұр.','Edit profile':'Профильді өзгерту',
+    'YOUR CURRENT DIRECTION':'СІЗДІҢ ҚАЗІРГІ БАҒЫТЫҢЫЗ','Shape my plan →':'Жоспарымды құру →','PATH FIT':'МАҚСАТҚА СӘЙКЕСТІК',
+    'Path level':'Жол деңгейі','Critical skills':'Негізгі дағдылар','Completed':'Аяқталды','Weekly focus':'Апталық фокус',
+    'YOUR NEXT MOVES':'КЕЛЕСІ ҚАДАМДАР','A plan that moves with you':'Сізбен бірге дамитын жоспар',
+    '✦ Refine with AI':'✦ ЖИ арқылы жетілдіру','THIS WEEK':'ОСЫ АПТАДА','One small promise':'Бір шағын қадам','Open my plan':'Жоспарымды ашу',
+    'YOUR NORTH STAR':'СІЗДІҢ БАҒДАРЫҢЫЗ','Turn ambition into a weekly plan.':'Мақсатыңызды апталық жоспарға айналдырыңыз.',
+    'DIRECTION':'БАҒЫТ','Describe where you want to go':'Қай бағытқа барғыңыз келетінін сипаттаңыз','Private to you + HR':'Сізге және HR-ға ғана көрінеді',
+    'In your own words':'Өз сөзіңізбен','Target role':'Мақсатты рөл','Target level':'Мақсатты деңгей','Timeline':'Мерзім',
+    'Hours I can invest each week':'Аптасына бөлетін сағат','Save direction':'Бағытты сақтау','Saving direction…':'Бағыт сақталуда…',
+    'PERSONAL ROADMAP':'ЖЕКЕ ЖОЛ КАРТАСЫ','✦ Create AI plan':'✦ ЖИ жоспарын құру','SKILL SIGNALS':'ДАҒДЫЛАР',
+    'What your goal asks for':'Мақсатыңызға қажет дағдылар','MAKE BETTER CHOICES':'ДҰРЫС ТАҢДАУ ЖАСАҢЫЗ',
+    'Is this opportunity worth your time?':'Бұл мүмкіндік уақытыңызға тұра ма?','Analyse an upcoming event':'Алдағы іс-шараны бағалау',
+    'Event name':'Іс-шара атауы','What will it cover?':'Не қамтылады?','Date':'Күні','Hours':'Сағат','Format':'Формат',
+    '✦ Analyse career fit':'✦ Мансапқа пайдасын бағалау','SAVED CHECKS':'САҚТАЛҒАН БАҒАЛАР','Your opportunity decisions':'Сіздің шешімдеріңіз',
+    'Explore company opportunities':'Компания мүмкіндіктері','Recommended':'Ұсынылған','Available':'Қолжетімді','All':'Барлығы',
+    'YOUR MOMENTUM':'СІЗДІҢ ПРОГРЕСІҢІЗ','Every step counts.':'Әр қадам маңызды.','TIMELINE':'ТАРИХ','Your growth history':'Даму тарихыңыз',
+    'YOUR STORY':'СІЗДІҢ ТАРИХЫҢЫЗ','Make this space yours.':'Бұл кеңістікті өзіңізге бейімдеңіз.','Short bio':'Қысқаша био',
+    'Work style':'Жұмыс форматы','Email nudges':'Email еске салулары','Save profile':'Профильді сақтау','Saving profile…':'Профиль сақталуда…',
+    'CAREER IDENTITY':'МАНСАП ПРОФИЛІ','Edit career goal':'Мансап мақсатын өзгерту','Privacy':'Құпиялылық',
+    'GMAIL INSIGHTS':'GMAIL ТАЛДАУЫ','Connect Gmail':'Gmail қосу','✦ Find career opportunities':'✦ Мансап мүмкіндіктерін табу',
+    'Disconnect':'Ажырату','Language updated.':'Тіл жаңартылды.','Sign out':'Шығу'
+  }
+};
+
+const t = text => I18N[state.lang]?.[text] || text;
+function languageSelect(id){return `<select id="${id}" class="language-picker" aria-label="Language"><option value="en" ${state.lang==='en'?'selected':''}>EN</option><option value="ru" ${state.lang==='ru'?'selected':''}>RU</option><option value="kk" ${state.lang==='kk'?'selected':''}>ҚАЗ</option></select>`}
+function applyLanguage(root=document){
+  document.documentElement.lang=state.lang;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  const nodes=[]; while(walker.nextNode())nodes.push(walker.currentNode);
+  for(const node of nodes){const value=node.nodeValue,trimmed=value.trim(),translated=t(trimmed);if(trimmed&&translated!==trimmed)node.nodeValue=value.replace(trimmed,translated)}
+  root.querySelectorAll?.('[placeholder],[title],[aria-label]').forEach(node=>{for(const name of ['placeholder','title','aria-label']){const value=node.getAttribute(name);if(value&&t(value)!==value)node.setAttribute(name,t(value))}})
+}
 
 async function api(path, options={}) {
   const response = await fetch(path,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(state.user?.csrf?{'X-CSRF-Token':state.user.csrf}:{}),...options.headers}});
@@ -63,6 +139,9 @@ async function showLogin(mode='login', error='') {
       <div id="demoArea"></div>
     </form></section>
   </main>`;
+  document.querySelector('.auth-panel').insertAdjacentHTML('afterbegin',languageSelect('authLanguage'));
+  applyLanguage(app);
+  document.getElementById('authLanguage').onchange=e=>{state.lang=e.target.value;localStorage.setItem('cq_lang',state.lang);showLogin(register?'register':'login')};
   document.getElementById('switchMode').onclick=()=>showLogin(register?'login':'register');
   document.getElementById('authForm').onsubmit=async event=>{
     event.preventDefault(); const form=event.currentTarget, button=form.querySelector('[type=submit]'); button.disabled=true;
@@ -100,7 +179,9 @@ async function loadProfile(keepPage=true) {
   app.innerHTML='<div class="boot"><div class="boot-mark">✦</div><strong>Career Quest</strong><span>Building your path…</span></div>';
   try {
     const detail=await api('/api/employees/'+encodeURIComponent(state.selected));
-    if(version!==state.version) return; state.detail=detail; state.photoDraft=detail.employee.photo||''; state.page=keepPage?page:'today'; render();
+    if(version!==state.version) return; state.detail=detail; state.photoDraft=detail.employee.photo||'';
+    if(!localStorage.getItem('cq_lang')&&detail.employee.preferred_language)state.lang=detail.employee.preferred_language;
+    state.page=keepPage?page:'today'; render();
   } catch(e) { app.innerHTML=`<div class="boot"><strong>We could not load your path.</strong><span>${esc(e.message)}</span><button id="retry" class="button primary">Try again</button></div>`;document.getElementById('retry').onclick=loadProfile; }
 }
 
@@ -128,6 +209,8 @@ function render() {
     </main>
     <div id="modal" class="modal-layer" hidden><section class="modal-card"><button id="closeModal" class="modal-close" aria-label="Close">×</button><div id="modalContent"></div></section></div>
   </div>`;
+  document.querySelector('.top-actions').insertAdjacentHTML('afterbegin',languageSelect('languageSelect'));
+  applyLanguage(app);
   wire();
 }
 
@@ -265,8 +348,11 @@ function wire() {
   document.getElementById('eventForm')?.addEventListener('submit',analyseEvent);
   document.getElementById('accountForm')?.addEventListener('submit',createAccount);
   document.getElementById('emailTest')?.addEventListener('click',sendEmailTest);
+  document.getElementById('languageSelect')?.addEventListener('change',changeLanguage);
   if(state.page==='profile'&&state.user.role==='employee')mountGmailPanel();
 }
+
+async function changeLanguage(event){const language=event.target.value;state.lang=language;localStorage.setItem('cq_lang',language);render();if(state.user.role==='employee'){try{await api('/api/employees/'+encodeURIComponent(state.selected)+'/language',{method:'PUT',body:JSON.stringify({language})});toast(t('Language updated.'))}catch(e){toast(e.message,'bad')}}}
 
 async function generatePlan(){const version=state.version;state.aiBusy=true;render();try{const result=await api(`/api/employees/${state.selected}/recommendations`,{method:'POST'});if(version===state.version){state.plan=result;state.aiBusy=false;render();toast(result.source==='openai'?'Your AI plan is ready.':'Your verified skill plan is ready.')}}catch(e){state.aiBusy=false;render();toast(e.message,'bad')}}
 async function saveGoal(event){event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type=submit]'),label=button.textContent;button.disabled=true;button.textContent='Saving direction…';try{const data=Object.fromEntries(new FormData(form));data.weekly_hours=Number(data.weekly_hours);await api(`/api/employees/${state.selected}/goal`,{method:'PUT',body:JSON.stringify(data)});state.detail=await api('/api/employees/'+encodeURIComponent(state.selected));state.page='plan';render();toast('Direction saved. Your roadmap now reflects this goal.')}catch(e){toast(e.message,'bad');button.disabled=false;button.textContent=label}}
