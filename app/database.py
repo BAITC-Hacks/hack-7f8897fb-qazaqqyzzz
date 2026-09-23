@@ -47,6 +47,10 @@ class Store:
                 CREATE TABLE IF NOT EXISTS personal_events (event_id TEXT PRIMARY KEY, employee_id TEXT NOT NULL,
                     payload TEXT NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP);
                 CREATE INDEX IF NOT EXISTS personal_events_employee ON personal_events(employee_id);
+                CREATE TABLE IF NOT EXISTS oauth_states (state TEXT PRIMARY KEY, username TEXT NOT NULL, expires REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS oauth_connections (employee_id TEXT NOT NULL, provider TEXT NOT NULL,
+                    email TEXT NOT NULL, encrypted_token TEXT NOT NULL, expires REAL NOT NULL, updated TEXT DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY(employee_id,provider));
                 CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, actor TEXT, action TEXT, subject TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP);
             ''')
         with self.connect(write=True) as c:

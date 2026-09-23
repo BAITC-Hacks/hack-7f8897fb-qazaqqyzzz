@@ -33,5 +33,9 @@ class Settings:
     smtp_password: str = os.getenv('SMTP_PASSWORD', '')
     from_email: str = os.getenv('FROM_EMAIL', '')
     smtp_tls: bool = os.getenv('SMTP_TLS', 'true').lower() == 'true'
+    google_client_id: str = os.getenv('GOOGLE_CLIENT_ID', '')
+    google_client_secret: str = os.getenv('GOOGLE_CLIENT_SECRET', '')
+    google_redirect_uri: str = os.getenv('GOOGLE_REDIRECT_URI', '')
+    oauth_token_key: str = os.getenv('OAUTH_TOKEN_ENCRYPTION_KEY', '')
 
 settings = Settings()

@@ -5,11 +5,12 @@ import secrets
 import smtplib
 import time
 import uuid
+import httpx
 from typing import Literal
 from collections import Counter, defaultdict, deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from .config import settings as default_settings
@@ -18,6 +19,7 @@ from .security import password_hash, verify_password, token_hash
 from .engine import evaluate, validate_profiles, validate_history, RECURRING, MISSED
 from .ai import Planner
 from .email import Mailer
+from .gmail import GmailConnector
 
 class Login(BaseModel):
     username: str = Field(min_length=1,max_length=100)
@@ -68,6 +70,7 @@ def create_app(settings=default_settings):
     store = Store(settings)
     planner = Planner(settings,store)
     mailer = Mailer(settings)
+    gmail = GmailConnector(settings, store)
     attempts = defaultdict(deque)
 
     @asynccontextmanager
@@ -79,7 +82,7 @@ def create_app(settings=default_settings):
 
     app = FastAPI(title='Career Quest API', version='2.0.0', lifespan=lifespan,
                   docs_url=None if settings.production else '/docs', redoc_url=None)
-    app.state.store, app.state.planner, app.state.mailer = store, planner, mailer
+    app.state.store, app.state.planner, app.state.mailer, app.state.gmail = store, planner, mailer, gmail
 
     def rate_limit(key, limit, window):
         now = time.time()
@@ -236,7 +239,7 @@ def create_app(settings=default_settings):
     @app.get('/api/auth/me')
     def me(user=Depends(session)):
         return {**user,'ai_available':bool(settings.api_key),'model':settings.model if settings.api_key else None,
-                'email_available':mailer.configured}
+                'email_available':mailer.configured,'gmail_available':gmail.configured}
 
     @app.post('/api/auth/logout')
     def logout(request:Request,user=Depends(session)):
@@ -245,6 +248,56 @@ def create_app(settings=default_settings):
         response=JSONResponse({'ok':True})
         response.delete_cookie('cq_session',path='/')
         return response
+
+    @app.get('/api/integrations/gmail/status')
+    def gmail_status(user=Depends(session)):
+        if not user['employee_id']:
+            return {'configured':gmail.configured,'connected':False,'email':None}
+        return gmail.status(user['employee_id'])
+
+    @app.get('/api/integrations/gmail/start')
+    def gmail_start(user=Depends(session)):
+        if not user['employee_id']:
+            raise HTTPException(403,'Only employee profiles can connect Gmail.')
+        try:
+            return RedirectResponse(gmail.authorization_url(user['username']),status_code=302)
+        except ValueError as ex:
+            raise HTTPException(503,str(ex)) from None
+
+    @app.get('/api/integrations/google/callback')
+    async def gmail_callback(code:str='',state:str='',error:str=''):
+        if error:
+            return RedirectResponse('/?gmail=denied',status_code=302)
+        if not code or not state:
+            return RedirectResponse('/?gmail=invalid',status_code=302)
+        try:
+            await gmail.callback(code,state)
+            return RedirectResponse('/?gmail=connected',status_code=302)
+        except (ValueError,httpx.HTTPError):
+            return RedirectResponse('/?gmail=failed',status_code=302)
+
+    @app.get('/api/integrations/gmail/insights')
+    async def gmail_insights(user=Depends(session)):
+        if not user['employee_id']:
+            raise HTTPException(403,'Only employee profiles can analyse Gmail.')
+        rate_limit(('gmail_scan',user['username']),6,3600)
+        try:
+            messages=await gmail.messages(user['employee_id'])
+        except ValueError as ex:
+            raise HTTPException(409,str(ex)) from None
+        except httpx.HTTPError as ex:
+            raise HTTPException(502,'Gmail could not be reached. Try reconnecting.') from ex
+        data=store.snapshot(); detail_result=evaluate(employee(user['employee_id'],user,data),data)
+        analysis=await planner.analyze_inbox(detail_result,messages)
+        by_id={m['id']:m for m in messages}
+        return {**analysis,'items':[{**by_id[x['id']],**x} for x in analysis['items'] if x['id'] in by_id]}
+
+    @app.delete('/api/integrations/gmail')
+    def gmail_disconnect(user=Depends(session)):
+        if not user['employee_id']:
+            raise HTTPException(403,'Only employee profiles can disconnect Gmail.')
+        gmail.disconnect(user['employee_id'],user['username'])
+        return {'disconnected':True}
 
     @app.get('/api/bootstrap')
     def bootstrap(user=Depends(session)):

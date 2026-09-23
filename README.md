@@ -69,7 +69,7 @@ The compose file persists SQLite under `./.local`. For a real deployment, provid
 
 ## Gmail integration
 
-The current build stores employee email preferences and supports optional SMTP delivery. Gmail inbox analysis is the next integration: it uses a user-authorized Google OAuth web client with the narrow `gmail.readonly` scope. OAuth client secrets and refresh tokens belong only on the backend and must never be committed. The planned flow extracts career-relevant interviews, courses, events, and deadlines, then asks the employee to confirm any suggested action before adding it to their plan.
+The build stores employee email preferences, supports optional SMTP delivery, and includes a user-authorized Gmail connector using the narrow `gmail.readonly` scope. The connector reads recent message metadata and short snippets only when the employee requests a scan, never attachments. Career Quest identifies relevant interviews, courses, events, jobs, and deadlines and compares them with the employee's goal and skill gaps. OAuth refresh tokens are encrypted at rest.
 
 For local OAuth development, register these values in Google Cloud:
 
@@ -79,6 +79,8 @@ Redirect URI:      http://localhost:4173/api/integrations/google/callback
 ```
 
 Production deployments must replace both values with the public HTTPS origin and keep OAuth tokens encrypted at rest.
+
+Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and a strong `OAUTH_TOKEN_ENCRYPTION_KEY` in `.env`. Rotating the encryption key intentionally disconnects existing Gmail connections.
 
 ## Verification
 

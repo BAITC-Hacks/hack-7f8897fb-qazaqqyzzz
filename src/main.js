@@ -3,7 +3,7 @@ const app = document.getElementById('app');
 const state = {
   user: null, people: [], skills: [], roles: [], roleProfiles: [], departments: [], selected: null,
   detail: null, hr: null, plan: null, page: 'today', query: '', catalogFilter: 'recommended',
-  aiBusy: false, version: 0, photoDraft: ''
+  aiBusy: false, version: 0, photoDraft: '', gmail: {configured:false,connected:false,email:null}
 };
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -81,6 +81,9 @@ async function showLogin(mode='login', error='') {
 
 async function start() {
   state.user=await api('/api/auth/me');
+  if(state.user.role==='employee') {
+    try { state.gmail=await api('/api/integrations/gmail/status'); } catch {}
+  }
   await refreshBootstrap();
   state.selected=state.people.some(x=>x.employee_id===state.user.employee_id)?state.user.employee_id:(state.selected||state.people[0]?.employee_id);
   state.page='today'; state.hr=null; await loadProfile();
@@ -213,6 +216,22 @@ function profile() {
   </div>`;
 }
 
+function gmailPanel(){
+  const g=state.gmail;
+  if(!g.configured) return '<div class="gmail-panel"><span>GMAIL INSIGHTS</span><h3>Inbox connection is ready for credentials</h3><p>Add the Google OAuth variables on the server to activate it.</p></div>';
+  if(!g.connected) return '<div class="gmail-panel"><span>GMAIL INSIGHTS</span><h3>Turn useful emails into next steps</h3><p>Read-only access. Career Quest scans recent subjects and snippets only when you ask.</p><button id="connectGmail" class="button primary wide">Connect Gmail</button></div>';
+  return `<div class="gmail-panel connected"><span>GMAIL CONNECTED</span><h3>${esc(g.email||'Connected inbox')}</h3><p>Attachments are never read. Only selected career signals are analysed.</p><button id="scanGmail" class="button primary wide">✦ Find career opportunities</button><button id="disconnectGmail" class="button ghost wide">Disconnect</button></div>`;
+}
+
+function mountGmailPanel(){
+  const card=document.querySelector('.identity-card');
+  if(!card||document.querySelector('.gmail-panel'))return;
+  card.insertAdjacentHTML('beforeend',gmailPanel());
+  document.getElementById('connectGmail')?.addEventListener('click',()=>window.location.assign('/api/integrations/gmail/start'));
+  document.getElementById('scanGmail')?.addEventListener('click',scanGmail);
+  document.getElementById('disconnectGmail')?.addEventListener('click',disconnectGmail);
+}
+
 function team() {
   if(!state.hr) return '<div class="boot"><div class="boot-mark">✦</div><span>Building the team view…</span></div>';
   return `<section class="page-intro"><p class="kicker">PEOPLE & GROWTH</p><h1>Help people find momentum.</h1><p>Create accounts, understand shared gaps and support meaningful development.</p></section>
@@ -246,6 +265,7 @@ function wire() {
   document.getElementById('eventForm')?.addEventListener('submit',analyseEvent);
   document.getElementById('accountForm')?.addEventListener('submit',createAccount);
   document.getElementById('emailTest')?.addEventListener('click',sendEmailTest);
+  if(state.page==='profile'&&state.user.role==='employee')mountGmailPanel();
 }
 
 async function generatePlan(){const version=state.version;state.aiBusy=true;render();try{const result=await api(`/api/employees/${state.selected}/recommendations`,{method:'POST'});if(version===state.version){state.plan=result;state.aiBusy=false;render();toast(result.source==='openai'?'Your AI plan is ready.':'Your verified skill plan is ready.')}}catch(e){state.aiBusy=false;render();toast(e.message,'bad')}}
@@ -256,5 +276,11 @@ function resizeImage(file){return new Promise((resolve,reject)=>{if(!['image/jpe
 async function analyseEvent(event){event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));values.hours=Number(values.hours);const button=event.currentTarget.querySelector('[type=submit]');button.disabled=true;button.textContent='✦ Analysing your fit…';try{const result=await api(`/api/employees/${state.selected}/event-analysis`,{method:'POST',body:JSON.stringify(values)});state.detail.personal_events.unshift(result);render();toast(`Career fit: ${result.analysis.score}/100`)}catch(e){toast(e.message,'bad');button.disabled=false;button.textContent='✦ Analyse career fit'}}
 async function createAccount(event){event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));const button=event.currentTarget.querySelector('[type=submit]');button.disabled=true;try{const result=await api('/api/hr/employees',{method:'POST',body:JSON.stringify(values)});await refreshBootstrap();state.hr=await api('/api/hr/summary');render();toast(`Account created for ${result.employee.full_name}.`)}catch(e){toast(e.message,'bad');button.disabled=false}}
 async function sendEmailTest(event){event.currentTarget.disabled=true;try{await api(`/api/employees/${state.selected}/email-test`,{method:'POST'});toast('Test email sent.')}catch(e){toast(e.message,'bad');event.currentTarget.disabled=false}}
+async function scanGmail(event){event.currentTarget.disabled=true;event.currentTarget.textContent='Scanning recent emails…';try{const result=await api('/api/integrations/gmail/insights');const cards=result.items.map(x=>`<article class="email-insight"><div><span>${esc(human(x.category))} · ${x.fit}% fit</span><h3>${esc(x.subject)}</h3><p>${esc(x.summary)}</p><b>${esc(x.action)}</b></div></article>`).join('');openModal(`<span class="section-kicker">GMAIL CAREER SIGNALS · ${esc(result.source.toUpperCase())}</span><h2>Your inbox opportunities</h2><p>Career Quest reviewed recent subjects and short snippets. It did not read attachments.</p><div class="email-insights">${cards||'<div class="empty-state">No career-relevant messages were found in the last 30 days.</div>'}</div>`)}catch(e){toast(e.message,'bad');event.currentTarget.disabled=false;event.currentTarget.textContent='✦ Find career opportunities'}}
+async function disconnectGmail(){try{await api('/api/integrations/gmail',{method:'DELETE'});state.gmail={...state.gmail,connected:false,email:null};render();toast('Gmail disconnected and saved tokens removed.')}catch(e){toast(e.message,'bad')}}
 
-try { state.user=await api('/api/auth/me'); await start(); } catch { showLogin(); }
+try {
+  state.user=await api('/api/auth/me'); await start();
+  const gmailResult=new URLSearchParams(location.search).get('gmail');
+  if(gmailResult){history.replaceState({},'',location.pathname);toast(gmailResult==='connected'?'Gmail connected.':'Gmail could not be connected.',gmailResult==='connected'?'good':'bad')}
+} catch { showLogin(); }
