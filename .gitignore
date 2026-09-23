@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.local/
+.venv
+__pycache__/
+*.pyc
+*.sqlite*
+.DS_Store
+.coverage
+.pytest_cache/
+.vscode/settings.json

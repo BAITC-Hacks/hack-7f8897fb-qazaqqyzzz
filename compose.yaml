@@ -1,0 +1,15 @@
+services:
+  careerquest:
+    build: .
+    ports:
+      - "4173:8080"
+    env_file: .env
+    environment:
+      PORT: "8080"
+      DATABASE_PATH: /var/lib/careerquest/careerquest.sqlite3
+    volumes:
+      - careerquest-data:/var/lib/careerquest
+    restart: unless-stopped
+
+volumes:
+  careerquest-data:
